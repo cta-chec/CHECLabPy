@@ -18,7 +18,6 @@ class BaselineSubtractor:
         self.n_base_samples = n_base_samples
         self.iev = 0
 
-        print("Creating initial baseline from first {} events".format(n_base))
         self.baseline_waveforms = np.zeros((n_base, n_pixels, n_base_samples))
         for waveforms in source:
             ev = source.index
@@ -26,7 +25,6 @@ class BaselineSubtractor:
                 break
             self.baseline_waveforms[ev] = waveforms[:, :n_base_samples]
         self.baseline = np.mean(self.baseline_waveforms, axis=(0, 2))
-        print("Baseline Created")
 
     def update_baseline(self, waveforms):
         entry = self.iev % self.n_base
@@ -109,3 +107,75 @@ def get_average_wf(source, t_shift):
 
     average_wf /= n
     return average_wf
+
+
+def get_average_wf_per_pixel(source, t_shift):
+    """
+    Loop over the file to get average waveform across all events and pixels
+    (while shifting each event so the max of the event-averages all match)
+
+    Parameters
+    ----------
+    source : `core.file_handling.Reader`
+    t_shift : int
+        Time bin to shift to
+
+    Returns
+    -------
+    average_wf : ndarray
+        One dimenstional array of shape (n_samples) containing the average
+        waveform across all events and pixels
+    """
+    n_events = source.n_events
+    n_pixels = source.n_pixels
+    n_samples = source.n_samples
+
+    baseline_subtractor = BaselineSubtractor(source)
+
+    desc = "Processing events"
+    average_wf = np.zeros((n_pixels, n_samples))
+    n = 0
+    for waveforms in tqdm(source, total=n_events, desc=desc):
+        waveforms_bs = baseline_subtractor.subtract(waveforms)
+
+        wf = shift_waveform(waveforms_bs, t_shift)
+
+        average_wf += wf
+        n += 1
+
+    average_wf /= n
+    return average_wf
+
+
+def obtain_dead_pixel_list_r1(source, threshold_percent=0.1, max_events=100):
+    """
+    From an R1 file, obtain a list of pixels that are considered dead as the
+    peak height of their average waveform is less that the threshold.
+
+    Parameters
+    ----------
+    source : `CHECLabPy.core.io.TIOReader`
+    threshold_percent : float
+        Percentage of the average height that should be used as a threshold
+        to define a dead pixel
+    max_events : int
+        Max number of events to loop over
+
+    Returns
+    -------
+    list
+    """
+    n_events = source.n_events if source.n_events < max_events else max_events
+    n_pixels = source.n_pixels
+    n_samples = source.n_samples
+    array = np.zeros((n_events, n_pixels, n_samples))
+    for waveforms in source:
+        iev = source.index
+        if iev >= n_events:
+            break
+        array[iev] = waveforms
+    avg_wf = np.mean(array, axis=0)
+    peak_height = np.max(avg_wf, axis=1)
+    dead = np.where(peak_height < peak_height.mean() * threshold_percent)[0]
+    print("Dead Pixels: {}".format(dead))
+    return dead

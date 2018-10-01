@@ -1,12 +1,23 @@
 import matplotlib as mpl
+# mpl.use('pgf')
 from matplotlib import pyplot as plt
-from os.path import dirname
+import os
 import numpy as np
 from CHECLabPy.utils.files import create_directory
 
 
 class Plotter:
-    def __init__(self, talk=False):
+    def __init__(self, ax=None, talk=False):
+        """
+        Base class for plotting classes to define common appearance
+
+        Parameters
+        ----------
+        ax : `matplotlib.axes.Axes`
+            Optionally place the plot on a pre-existing axes
+        talk : bool
+            Configure appearance to be appropriate for a presentation
+        """
         # sns.set_style("white")
         # sns.set_style("ticks")
         rc = {
@@ -16,7 +27,7 @@ class Plotter:
             "font.size": 10,
             "axes.titlesize": 10,
             "axes.labelsize": 10,
-            "legend.fontsize": 10,
+            "legend.fontsize": 8,
             "lines.markeredgewidth": 1
         }
         if talk:
@@ -34,7 +45,11 @@ class Plotter:
         mpl.rcParams.update(rc)
         # sns.set_context("talk", rc=rc)
 
-        self.fig, self.ax = self.create_figure()
+        if ax:
+            self.ax = ax
+            self.fig = ax.figure
+        else:
+            self.fig, self.ax = self.create_figure()
 
     @staticmethod
     def figsize(scale=0.9):
@@ -55,8 +70,8 @@ class Plotter:
         # ax.yaxis.set_major_formatter(fmt)
         return fig, ax
 
-    def add_legend(self, loc="upper right"):
-        self.ax.legend(loc=loc)
+    def add_legend(self, loc="upper right", **kwargs):
+        self.ax.legend(loc=loc, **kwargs)
 
     @staticmethod
     def create_directory(directory):
@@ -67,7 +82,8 @@ class Plotter:
 
     def save(self, output_path):
         self.finish()
-        output_dir = dirname(output_path)
+        output_dir = os.path.dirname(output_path)
         self.create_directory(output_dir)
+        # self.fig.tight_layout()
         self.fig.savefig(output_path, bbox_inches='tight')
         print("Figure saved to: {}".format(output_path))
