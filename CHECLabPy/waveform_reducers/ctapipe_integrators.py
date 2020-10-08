@@ -1,5 +1,6 @@
 from CHECLabPy.core.reducer import WaveformReducer, column
-from CHECLabPy.utils.mapping import get_ctapipe_camera_geometry
+from CHECLabPy.utils.mapping import get_ctapipe_subarray
+import numpy as np
 
 
 class CtapipeLocalPeakIntegrator(WaveformReducer):
@@ -69,20 +70,21 @@ class CtapipeNeighbourPeakIntegrator(WaveformReducer):
                    .format(self.__class__.__name__, self.columns))
             raise ImportError(msg)
 
-        camera = get_ctapipe_camera_geometry(mapping)
-
+        subarray, self._tel_id = get_ctapipe_subarray(mapping)
+        n_pixels = subarray.tel[self._tel_id].camera.geometry.n_pixels
+        self.channel = np.zeros(n_pixels, dtype=int)
         self.window_size = self.kwargs.get("window_size", 6)
         self.window_shift = self.kwargs.get("window_shift", 3)
         self.integrator = NeighborPeakWindowSum(
             window_shift=self.window_shift,
             window_width=self.window_size,
             lwt=0,
+            subarray=subarray,
         )
-        self.integrator.neighbors = camera.neighbor_matrix_where
 
     def _prepare(self, waveforms):
         super()._prepare(waveforms)
-        charge, pulse_time = self.integrator(waveforms)
+        charge, pulse_time = self.integrator(waveforms, self._tel_id, self.channel)
 
         self.t = pulse_time
         self.charge = charge

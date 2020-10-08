@@ -48,7 +48,7 @@ class SimtelReader(WaveformReader):
         )
         self.seeker = EventSeeker(reader)
 
-        first_event = self.seeker[0]
+        first_event = self.seeker.get_event_index(0)
         tels = list(first_event.r0.tels_with_data)
         self.tel = tels[0]
         shape = first_event.r0.tel[self.tel].waveform.shape
@@ -62,7 +62,7 @@ class SimtelReader(WaveformReader):
         self.mapping = get_clp_mapping_from_tc_mapping(tc_mapping)
         n_rows = self.mapping.metadata['n_rows']
         n_columns = self.mapping.metadata['n_columns']
-        camera_geom = first_event.inst.subarray.tel[tels[0]].camera
+        camera_geom = reader.subarray.tel[tels[0]].camera.geometry
         engineering_frame = EngineeringCameraFrame(n_mirrors=2)
         engineering_geom = camera_geom.transform_to(engineering_frame)
         pix_x = engineering_geom.pix_x.value
@@ -84,7 +84,7 @@ class SimtelReader(WaveformReader):
     def _build_waveform(self, event):
         self._fill_event_containers(event)
         samples = event.r1.tel[self.tel].waveform[self.pixel_order]
-        mc_true = event.mc.tel[self.tel].photo_electron_image[self.pixel_order]
+        mc_true = event.mc.tel[self.tel].true_image[self.pixel_order]
         waveform = SimtelWaveform(
             samples,
             iev=self._iev,
@@ -95,7 +95,7 @@ class SimtelReader(WaveformReader):
         return waveform
 
     def _get_event(self, iev):
-        event = self.seeker[iev]
+        event = self.seeker.get_event_index(iev)
         return self._build_waveform(event)
 
     def __iter__(self):
@@ -119,8 +119,8 @@ class SimtelReader(WaveformReader):
 
     def _fill_event_containers(self, event):
         self._iev = event.count
-        self._t_cpu = pd.to_datetime(event.trig.gps_time.value, unit='s')
-        self.run_id = event.r0.obs_id
+        self._t_cpu = pd.to_datetime(event.trigger.tel[self.tel].time.value, unit='s')
+        self.run_id = event.index.obs_id
 
         self.mc = dict(
             iev=self._iev,

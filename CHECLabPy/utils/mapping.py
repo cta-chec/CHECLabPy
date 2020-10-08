@@ -1,5 +1,8 @@
 import warnings
 import numpy as np
+from ctapipe.instrument import SubarrayDescription, TelescopeDescription, \
+    CameraDescription, CameraReadout, OpticsDescription
+from astropy import units as u
 
 
 def get_clp_mapping_from_tc_mapping(tc_mapping):
@@ -169,9 +172,23 @@ def get_ctapipe_camera_geometry(mapping):
         pix_area=None,
         pix_type='rectangular',
         frame=EngineeringCameraFrame(n_mirrors=2),
-        sampling_rate=u.Quantity(1, u.GHz),
     )
     return camera
+
+
+def get_ctapipe_subarray(mapping):
+    tel_id = 0
+    geom = get_ctapipe_camera_geometry(mapping)
+    camera = CameraDescription("CHEC", geom, CameraReadout.from_name("CHEC"))
+    optics = OpticsDescription.from_name("SST-ASTRI")
+    subarray = SubarrayDescription(
+        "test array",
+        tel_positions={tel_id: np.zeros(3) * u.m},
+        tel_descriptions={
+            tel_id: TelescopeDescription("SST-ASTRI_CHEC", "SST", optics, camera)
+        },
+    )
+    return subarray, tel_id
 
 
 def get_row_column(pix_x, pix_y):
